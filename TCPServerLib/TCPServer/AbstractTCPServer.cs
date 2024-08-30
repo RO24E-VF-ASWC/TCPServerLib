@@ -5,38 +5,120 @@ using System.Net.Sockets;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using System.Diagnostics;
+using System.Xml.Linq;
 
 namespace TCPServerLib.TCPServer
 {
+    /// <summary>
+    /// An Template TCP server to set up the tcp server on a given port and with an given name 
+    /// the server can be soft closed down using a stop server stated on the given port plus one
+    /// </summary>
     public abstract class AbstractTCPServer
     {
-        private readonly int PORT = 7;
+        // instance fields
+        private const int SEC = 1000;
+        private readonly IPAddress ListenOnIPAddress = IPAddress.Any;
+        private bool running = true;
+        private readonly List<Task> clients = new List<Task>();
 
-        public AbstractTCPServer(int port = 7)
+
+
+        //properties
+
+        /// <summary>
+        /// Get the port number the server is starting on
+        /// </summary>
+        public int PORT { get; private set; }
+
+        /// <summary>
+        /// Get the the port number of the stopping server
+        /// </summary>
+        public int STOPPORT { get; private set; }
+
+        /// <summary>
+        /// Get the name given to the server
+        /// </summary>
+        public String NAME { get; private set; }
+
+
+
+        /*
+         * Different constructors
+         * 
+         * one for port & name
+         * 
+         */
+
+
+        /// <summary>
+        /// The constructor to template server initilyzing the port and name of the server
+        /// </summary>
+        /// <param name="port">The port number the server will start / listen on (stopport is port + 1)</param>
+        /// <param name="name">The name of the server</param>
+        public AbstractTCPServer(int port, string name) : this(port, port + 1, name)
+        {
+        }
+
+        /// <summary>
+        /// The constructor to template server initilyzing the port and name of the server
+        /// </summary>
+        /// <param name="port">The port number the server will start / listen on (stopport is port + 1)</param>
+        /// <param name="stopport">The port number for the stop server</param>
+        /// <param name="name">The name of the server</param>
+        public AbstractTCPServer(int port, int stopport, string name)
         {
             PORT = port;
+            STOPPORT = stopport;
+            NAME = name;
         }
-        
 
+
+        /*
+         * Code for the server
+         */
+
+
+
+        /// <summary>
+        /// Starts the server, this include a stopserver  
+        /// </summary>
         public void Start()
         {
+            // start stop server
+            Task.Run(TheStopServer); // kort for Task.Run( ()=>{ TheStopServer(); });
+
+
             TcpListener listener = new TcpListener(IPAddress.Any, PORT);
             listener.Start();
             Console.WriteLine("Server started");
 
-            while (true)
+            while (running)
             {
-                TcpClient client = listener.AcceptTcpClient();
-                Console.WriteLine("Client incoming");
-                Console.WriteLine($"remote (ip,port) = ({client.Client.RemoteEndPoint})");
-
-                Task.Run(() =>
+                if (listener.Pending()) // der findes en klient
                 {
-                    TcpClient tmpClient = client;
-                    DoOneClient(client);
-                });
+                    TcpClient client = listener.AcceptTcpClient();
+                    Console.WriteLine("Client incoming");
+                    Console.WriteLine($"remote (ip,port) = ({client.Client.RemoteEndPoint})");
+
+                    clients.Add(
+                        Task.Run(() =>
+                            {
+                                TcpClient tmpClient = client;
+                                DoOneClient(client);
+                            })
+                        );
+                }
+                else  // der er PT ingen klient
+                {
+                    Thread.Sleep(2 * SEC);
+                }
 
             }
+            // vente på alle task bliver færdige
+            Task.WaitAll(clients.ToArray());
+
+            Console.WriteLine("Server stopped");
         }
 
         private void DoOneClient(TcpClient client)
@@ -51,7 +133,37 @@ namespace TCPServerLib.TCPServer
             }
         }
 
+        /// <summary>
+        /// This method implement what is specific for this server 
+        /// e.g. if this is an echo server read from sr and write to sw
+        /// </summary>
+        /// <param name="sr">The streamreader from where you can read strings from the socket</param>
+        /// <param name="sw">The streamwriter whereto you can write strings to the socket</param>
         protected abstract void TemplateMethod(StreamReader sr, StreamWriter sw);
-        
+
+
+
+
+        /*
+        * stop server
+        */
+        private void StoppingServer()
+        {
+            running = false;
+        }
+
+        private void TheStopServer()
+        {
+            TcpListener listener = new TcpListener(ListenOnIPAddress, STOPPORT);
+            listener.Start();
+
+            TcpClient client = listener.AcceptTcpClient();
+            //todo tjek om det er lovligt fx et password
+
+            StoppingServer();
+            client?.Close();
+            listener?.Stop(); // bare for at være pæn - det hele lukker alligevel
+        }
+
     }
 }

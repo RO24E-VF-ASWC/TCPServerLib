@@ -9,9 +9,8 @@ namespace TryMyServerApp.Server
 {
     internal class MyServer : AbstractTCPServer
     {
-        public MyServer() { }
-
-        public MyServer(int port = 7) : base(port)
+        
+        public MyServer(int port = 7) : base(port, nameof(MyServer))
         {
         }
 
