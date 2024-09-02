@@ -1,0 +1,6 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Server>
+	<Port>7</Port>
+	<Stopport>7007</Stopport>
+	<Name>Peters ekko</Name>
+</Server>
