@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Xml.Linq;
+using System.Xml;
 
 namespace TCPServerLib.TCPServer
 {
@@ -24,23 +25,27 @@ namespace TCPServerLib.TCPServer
 
 
 
-        //properties
+        ////properties - is defined in ServerConfig
+
+        ///// <summary>
+        ///// Get the port number the server is starting on
+        ///// </summary>
+        //public int PORT { get; private set; }
+
+        ///// <summary>
+        ///// Get the the port number of the stopping server
+        ///// </summary>
+        //public int STOPPORT { get; private set; }
+
+        ///// <summary>
+        ///// Get the name given to the server
+        ///// </summary>
+        //public String NAME { get; private set; }
 
         /// <summary>
-        /// Get the port number the server is starting on
+        /// Get an singleton instance of configuration values for the server
         /// </summary>
-        public int PORT { get; private set; }
-
-        /// <summary>
-        /// Get the the port number of the stopping server
-        /// </summary>
-        public int STOPPORT { get; private set; }
-
-        /// <summary>
-        /// Get the name given to the server
-        /// </summary>
-        public String NAME { get; private set; }
-
+        protected ServerConfig Conf { get; private set; } = ServerConfig.Instance;
 
 
         /*
@@ -68,9 +73,46 @@ namespace TCPServerLib.TCPServer
         /// <param name="name">The name of the server</param>
         public AbstractTCPServer(int port, int stopport, string name)
         {
-            PORT = port;
-            STOPPORT = stopport;
-            NAME = name;
+            Conf.ServerPort = port;
+            Conf.StopServerPort = stopport;
+            Conf.ServerName = name;
+        }
+
+        /// <summary>
+        /// The constructor to template server initilyzing the port and name of the server by af configuration file
+        /// </summary>
+        /// <param name="filename">The name of the configuration file default is 'serverconfig.xml'</param>
+        public AbstractTCPServer(String filename = "serverconfig.xml")
+        {
+            string configpath = @"C:\config\"; // or read env. variable like
+                                               // Environment.GetEnvironmentVariable("AbstractServerConf")
+            XmlDocument configDoc = new XmlDocument();
+            configDoc.Load(configpath + filename);
+
+
+            XmlNode? portNode = configDoc.DocumentElement?.SelectSingleNode("ServerPort");
+            if (portNode != null)
+            {
+                String portStr = portNode.InnerText.Trim();
+                int port = Convert.ToInt32(portStr);
+                Conf.ServerPort = port;
+            }
+
+            XmlNode? stopportNode = configDoc.DocumentElement?.SelectSingleNode("StopServerPort");
+            if (stopportNode != null)
+            {
+                String stopportStr = stopportNode.InnerText.Trim();
+                int stopport = Convert.ToInt32(stopportStr);
+                Conf.StopServerPort = stopport;
+            }
+
+
+            XmlNode? nameNode = configDoc.DocumentElement?.SelectSingleNode("ServerName");
+            if (nameNode != null)
+            {
+                String name = nameNode.InnerText.Trim();
+                Conf.ServerName = name;
+            }
         }
 
 
@@ -89,16 +131,15 @@ namespace TCPServerLib.TCPServer
             Task.Run(TheStopServer); // kort for Task.Run( ()=>{ TheStopServer(); });
 
 
-            TcpListener listener = new TcpListener(IPAddress.Any, PORT);
+            TcpListener listener = new TcpListener(IPAddress.Any, Conf.ServerPort);
             listener.Start();
-            Console.WriteLine("Server started");
+            Console.WriteLine($"Server {Conf.ServerName} started on port {Conf.ServerPort}");
 
             while (running)
             {
                 if (listener.Pending()) // der findes en klient
                 {
                     TcpClient client = listener.AcceptTcpClient();
-                    Console.WriteLine("Client incoming");
                     Console.WriteLine($"remote (ip,port) = ({client.Client.RemoteEndPoint})");
 
                     clients.Add(
@@ -118,7 +159,7 @@ namespace TCPServerLib.TCPServer
             // vente på alle task bliver færdige
             Task.WaitAll(clients.ToArray());
 
-            Console.WriteLine("Server stopped");
+            Console.WriteLine($"Server {Conf.ServerName} stopped");
         }
 
         private void DoOneClient(TcpClient client)
@@ -154,12 +195,13 @@ namespace TCPServerLib.TCPServer
 
         private void TheStopServer()
         {
-            TcpListener listener = new TcpListener(ListenOnIPAddress, STOPPORT);
+            TcpListener listener = new TcpListener(ListenOnIPAddress, Conf.StopServerPort);
             listener.Start();
-
+            Console.WriteLine($"StopServer {Conf.ServerName} started on port {Conf.StopServerPort}");
             TcpClient client = listener.AcceptTcpClient();
             //todo tjek om det er lovligt fx et password
 
+            Console.WriteLine($"Server {Conf.ServerName} is closing");
             StoppingServer();
             client?.Close();
             listener?.Stop(); // bare for at være pæn - det hele lukker alligevel

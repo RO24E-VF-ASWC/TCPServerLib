@@ -10,9 +10,13 @@ namespace TryMyServerApp.Server
     internal class MyServer : AbstractTCPServer
     {
         
-        public MyServer(int port = 7) : base(port, nameof(MyServer))
+        public MyServer(int port) : base(port, nameof(MyServer))
         {
         }
+
+        public MyServer(): base()
+        { }
+        
 
         protected override void TemplateMethod(StreamReader sr, StreamWriter sw)
         {
