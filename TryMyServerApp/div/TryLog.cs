@@ -31,6 +31,8 @@ namespace TryMyServerApp.div
             ts.Listeners.Add(new XmlWriterTraceListener($"{logname}.xml"));
 
 
+            ts.Listeners.Add(new EventLogTraceListener("Application"));
+
 
             ts.TraceEvent(TraceEventType.Information, 700, "Message: Information");
             ts.TraceEvent(TraceEventType.Warning, 700, "Message: Warning");
