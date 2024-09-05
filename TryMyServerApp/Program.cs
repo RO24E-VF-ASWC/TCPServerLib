@@ -3,8 +3,8 @@
 using TryMyServerApp.div;
 using TryMyServerApp.Server;
 
-MyServer server = new MyServer(); // use configfile
-server.Start();
+//MyServer server = new MyServer(); // use configfile
+//server.Start();
 
 //Regn regn = new Regn();
 
@@ -14,6 +14,9 @@ server.Start();
 
 //ReadConfig conf = new ReadConfig();
 //conf.Read("../../../div/Config.xml");
+
+TryLog log = new TryLog();
+log.Start();
 
 Console.WriteLine("press any key");
 Console.ReadKey();
