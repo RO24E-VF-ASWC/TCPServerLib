@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Xml.Linq;
 using System.Xml;
+using System.Diagnostics.Tracing;
 
 namespace TCPServerLib.TCPServer
 {
@@ -24,6 +25,8 @@ namespace TCPServerLib.TCPServer
         private readonly List<Task> clients = new List<Task>();
 
 
+
+        protected readonly TraceSource _trace;
 
         ////properties - is defined in ServerConfig
 
@@ -76,6 +79,12 @@ namespace TCPServerLib.TCPServer
             Conf.ServerPort = port;
             Conf.StopServerPort = stopport;
             Conf.ServerName = name;
+
+            _trace = new TraceSource(name);
+            _trace.Switch = new SourceSwitch(name, SourceLevels.Information.ToString());
+#if DEBUG
+            _trace.Listeners.Add(new ConsoleTraceListener());
+#endif
         }
 
         /// <summary>
@@ -113,8 +122,25 @@ namespace TCPServerLib.TCPServer
                 String name = nameNode.InnerText.Trim();
                 Conf.ServerName = name;
             }
+
+            _trace = new TraceSource(Conf.ServerName);
+            _trace.Switch = new SourceSwitch(Conf.ServerName, SourceLevels.Information.ToString());
+#if DEBUG
+            _trace.Listeners.Add(new ConsoleTraceListener());
+#endif
         }
 
+
+        public void AddTraceLIstener(TraceListener listener)
+        {
+            _trace.Listeners.Add(listener);
+        }
+        public void RemoveTraceLIstener(TraceListener listener)
+        {
+            _trace.Listeners.Remove(listener);
+        }
+
+        
 
         /*
          * Code for the server
@@ -133,14 +159,14 @@ namespace TCPServerLib.TCPServer
 
             TcpListener listener = new TcpListener(IPAddress.Any, Conf.ServerPort);
             listener.Start();
-            Console.WriteLine($"Server {Conf.ServerName} started on port {Conf.ServerPort}");
+            _trace.TraceEvent(TraceEventType.Information, 700, $"Server {Conf.ServerName} started on port {Conf.ServerPort}");
 
             while (running)
             {
                 if (listener.Pending()) // der findes en klient
                 {
                     TcpClient client = listener.AcceptTcpClient();
-                    Console.WriteLine($"remote (ip,port) = ({client.Client.RemoteEndPoint})");
+                    _trace.TraceEvent(TraceEventType.Information, 700,$"remote (ip,port) = ({client.Client.RemoteEndPoint})");
 
                     clients.Add(
                         Task.Run(() =>
@@ -159,7 +185,8 @@ namespace TCPServerLib.TCPServer
             // vente på alle task bliver færdige
             Task.WaitAll(clients.ToArray());
 
-            Console.WriteLine($"Server {Conf.ServerName} stopped");
+            _trace.TraceEvent(TraceEventType.Warning, 700, $"Server {Conf.ServerName} stopped");
+            _trace.Close();
         }
 
         private void DoOneClient(TcpClient client)
@@ -168,7 +195,7 @@ namespace TCPServerLib.TCPServer
             using (StreamWriter sw = new StreamWriter(client.GetStream()))
             {
                 sw.AutoFlush = true;
-                Console.WriteLine("Handle one client");
+                _trace.TraceEvent(TraceEventType.Information, 700, "Handle one client");
 
                 TemplateMethod(sr, sw);
             }
@@ -197,11 +224,11 @@ namespace TCPServerLib.TCPServer
         {
             TcpListener listener = new TcpListener(ListenOnIPAddress, Conf.StopServerPort);
             listener.Start();
-            Console.WriteLine($"StopServer {Conf.ServerName} started on port {Conf.StopServerPort}");
+            _trace.TraceEvent(TraceEventType.Warning, 700, $"StopServer {Conf.ServerName} started on port {Conf.StopServerPort}");
             TcpClient client = listener.AcceptTcpClient();
             //todo tjek om det er lovligt fx et password
 
-            Console.WriteLine($"Server {Conf.ServerName} is closing");
+            _trace.TraceEvent(TraceEventType.Warning, 700, $"Server {Conf.ServerName} is closing");
             StoppingServer();
             client?.Close();
             listener?.Stop(); // bare for at være pæn - det hele lukker alligevel

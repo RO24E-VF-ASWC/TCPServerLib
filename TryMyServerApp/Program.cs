@@ -1,10 +1,14 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
+using System.Diagnostics;
 using TryMyServerApp.div;
 using TryMyServerApp.Server;
 
-//MyServer server = new MyServer(); // use configfile
-//server.Start();
+MyServer server = new MyServer(); // use configfile
+server.AddTraceLIstener(new TextWriterTraceListener($"Peters.txt"));
+
+server.Start();
+
 
 //Regn regn = new Regn();
 
@@ -15,8 +19,8 @@ using TryMyServerApp.Server;
 //ReadConfig conf = new ReadConfig();
 //conf.Read("../../../div/Config.xml");
 
-TryLog log = new TryLog();
-log.Start();
+//TryLog log = new TryLog();
+//log.Start();
 
 Console.WriteLine("press any key");
 Console.ReadKey();
